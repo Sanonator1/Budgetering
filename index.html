@@ -59,7 +59,7 @@
                     <tr>
                         <th style="width: 40%;">Wat</th>
                         <th style="width: 25%;">€</th>
-                        <th style="width: 25%;">Datum</th>
+                        <th style="width: 35%;">Datum</th>
                         <th style="width: 10%;"></th>
                     </tr>
                 </thead>
@@ -130,11 +130,11 @@
 
         function exportData() {
             const dataStr = JSON.stringify(entries);
-            prompt("Kopieer deze code:", dataStr);
+            prompt("Back-up code (Kopiëren):", dataStr);
         }
 
         function importData() {
-            const dataStr = prompt("Plak je code:");
+            const dataStr = prompt("Plak back-up code:");
             if (dataStr) {
                 try {
                     entries = JSON.parse(dataStr);
@@ -155,9 +155,11 @@
             list.innerHTML = catDiv.innerHTML = "";
             let mTotal = 0, totals = {}, counts = {}, sS = 0, sL = 0;
 
+            // BEREKENING SPAARGELD (Global)
             entries.forEach(e => {
                 if (e.cat === 'Spaargeld') {
-                    let val = e.type === 'op' ? e.amt : -e.amt;
+                    // Bij spaargeld is een "Kost" (geld naar spaarrek) een PLUS voor het saldo
+                    let val = e.type === 'ko' ? e.amt : -e.amt;
                     if (e.user === 'Sander') sS += val; else sL += val;
                 }
             });
@@ -176,7 +178,7 @@
 
                 list.innerHTML += `<tr>
                     <td><strong>${e.cat}</strong><br><small>${e.desc}</small></td>
-                    <td class="${e.type === 'op' ? 'green' : 'red'}">${val.toFixed(2)}€</td>
+                    <td class="${e.type === 'op' ? 'green' : 'red'}" style="white-space:nowrap;">${val.toFixed(2)}€</td>
                     <td style="font-size:11px;">${fullDate}</td>
                     <td><button class="del-btn" onclick="del(${e.id})">X</button></td>
                 </tr>`;
