@@ -5,24 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>Budget Pro</title>
     <style>
-        /* Voorkom inzoomen op iPhone door font-size 16px */
+        /* Basis styling voor iPhone 16 */
         body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 15px; margin: 0; font-size: 16px; }
         input, select, button { font-size: 16px !important; width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; }
         
-        /* Layout voor iPhone 16 */
+        /* Compactere datumkiezer */
+        #date { padding: 8px; }
+
+        /* Spaargeld bovenaan */
         .stats { display: flex; justify-content: space-between; font-weight: bold; position: sticky; top: 0; background: #f0f2f5; padding: 10px 0; z-index: 100; border-bottom: 1px solid #ddd; }
         .card { background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         
-        button { background: #007aff; color: white; border: none; font-weight: 600; active { opacity: 0.7; } }
+        button { background: #007aff; color: white; border: none; font-weight: 600; }
         .red { color: #ff3b30; } .green { color: #34c759; }
         .hidden { display: none; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        /* Tabel styling */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         th { border-bottom: 2px solid #eee; padding: 10px 5px; text-align: left; }
         td { padding: 12px 5px; border-bottom: 1px solid #f0f0f0; }
-        .del-btn { background: #ff3b30; color: white; padding: 5px 10px; border-radius: 6px; width: auto; font-size: 12px !important; }
         
-        .cat-sum { margin-top: 15px; padding-top: 10px; border-top: 2px dashed #eee; font-size: 15px; }
+        /* Totalen tabel specifieke uitlijning */
+        .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .total-row span:last-child { font-weight: bold; text-align: right; }
+        
+        .del-btn { background: #ff3b30; color: white; padding: 5px 10px; border-radius: 6px; width: auto; font-size: 12px !important; }
+        .cat-sum-header { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px dashed #eee; }
     </style>
 </head>
 <body>
@@ -48,25 +56,28 @@
 
     <div class="card">
         <select id="filterMonth" onchange="render()"></select>
+        
+        <div id="summaryArea">
+            <h3 class="cat-sum-header">Maandbalans: <span id="monthTotal">0</span></h3>
+            <div id="catTotals"></div>
+        </div>
+
         <div id="monthResult">
             <table>
                 <thead><tr><th>Wat</th><th>€</th><th>#</th><th>Datum</th><th></th></tr></thead>
                 <tbody id="list"></tbody>
             </table>
-            <h3 class="cat-sum">Maandbalans: <span id="monthTotal">0</span></h3>
-            <div id="catTotals" class="cat-sum"></div>
         </div>
     </div>
 
     <script>
-        // Maanden genereren voor dropdown
         const monthSelect = document.getElementById('filterMonth');
         const monthNames = ["Januari", "Februari", "Maart", "April", "Mei", "Juni", "Juli", "Augustus", "September", "Oktober", "November", "December"];
         
+        // Genereer 18 maanden beginnend bij Januari 2026
         function fillMonths() {
-            const now = new Date();
-            for (let i = 0; i < 24; i++) {
-                let d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            for (let i = 0; i < 18; i++) {
+                let d = new Date(2026, i, 1);
                 let opt = document.createElement('option');
                 opt.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                 opt.innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
@@ -119,7 +130,6 @@
             
             let mTotal = 0, totals = {}, counts = {}, sS = 0, sL = 0;
 
-            // Spaargeld altijd globaal berekenen
             entries.forEach(e => {
                 if (e.cat === 'Spaargeld') {
                     let val = e.type === 'op' ? e.amt : -e.amt;
@@ -127,7 +137,6 @@
                 }
             });
 
-            // Filteren op gekozen maand
             const filtered = entries.filter(e => e.date.startsWith(filter));
             
             filtered.forEach(e => {
@@ -138,7 +147,7 @@
 
                 list.innerHTML += `<tr>
                     <td><strong>${e.cat}</strong><br><small>${e.desc}</small></td>
-                    <td class="${e.type === 'op' ? 'green' : 'red'}">${val}€</td>
+                    <td class="${e.type === 'op' ? 'green' : 'red'}">${val.toFixed(2)}€</td>
                     <td>${counts[e.cat]}x</td>
                     <td>${e.date.split('-')[2]}</td>
                     <td><button class="del-btn" onclick="del(${e.id})">X</button></td>
@@ -150,8 +159,13 @@
             document.getElementById('monthTotal').innerText = "€" + mTotal.toFixed(2);
             document.getElementById('monthTotal').className = mTotal >= 0 ? 'green' : 'red';
 
+            // Totalen per noemer met links-rechts uitlijning
             for (let c in totals) {
-                catDiv.innerHTML += `<div>${c}: <strong class="${totals[c] >= 0 ? 'green' : 'red'}">€${totals[c].toFixed(2)}</strong></div>`;
+                catDiv.innerHTML += `
+                    <div class="total-row">
+                        <span>${c} (${counts[c]}x)</span>
+                        <span class="${totals[c] >= 0 ? 'green' : 'red'}">€${totals[c].toFixed(2)}</span>
+                    </div>`;
             }
         }
 
