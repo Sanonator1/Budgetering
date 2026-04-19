@@ -7,24 +7,19 @@
     <style>
         body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 15px; margin: 0; font-size: 16px; }
         input, select, button { font-size: 16px !important; width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; display: block; }
-        
         #date { padding: 10px; -webkit-appearance: none; min-height: 44px; }
-
         .stats { display: flex; justify-content: space-between; font-weight: bold; position: sticky; top: 0; background: #f0f2f5; padding: 10px 0; z-index: 100; border-bottom: 1px solid #ddd; }
         .card { background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         button { background: #007aff; color: white; border: none; font-weight: 600; }
         .red { color: #ff3b30; } .green { color: #34c759; }
         .hidden { display: none; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; table-layout: fixed; }
         th { text-align: left; padding: 8px 5px; border-bottom: 2px solid #eee; }
-        td { padding: 12px 5px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
-        
+        td { padding: 12px 2px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; overflow: hidden; }
         .cat-sum-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px dashed #eee; }
         .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
         .total-row span:last-child { font-weight: bold; text-align: right; }
-        
-        .del-btn { background: #ff3b30; color: white; padding: 6px 10px; border-radius: 6px; width: auto; font-size: 12px !important; display: inline-block; margin: 0; }
+        .del-btn { background: #ff3b30; color: white; padding: 6px 8px; border-radius: 6px; width: auto; font-size: 12px !important; display: inline-block; margin: 0; }
         .btn-secondary { background: #e5e5ea; color: #333; margin-top: 8px; font-size: 12px !important; padding: 8px; }
     </style>
 </head>
@@ -62,10 +57,10 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Wat</th>
-                        <th>€</th>
-                        <th>Datum</th>
-                        <th></th>
+                        <th style="width: 40%;">Wat</th>
+                        <th style="width: 25%;">€</th>
+                        <th style="width: 25%;">Datum</th>
+                        <th style="width: 10%;"></th>
                     </tr>
                 </thead>
                 <tbody id="list"></tbody>
@@ -135,11 +130,11 @@
 
         function exportData() {
             const dataStr = JSON.stringify(entries);
-            prompt("Back-up code (Kopiëren):", dataStr);
+            prompt("Kopieer deze code:", dataStr);
         }
 
         function importData() {
-            const dataStr = prompt("Plak back-up code:");
+            const dataStr = prompt("Plak je code:");
             if (dataStr) {
                 try {
                     entries = JSON.parse(dataStr);
@@ -176,14 +171,13 @@
                 totals[e.cat] = (totals[e.cat] || 0) + val;
                 counts[e.cat] = (counts[e.cat] || 0) + 1;
 
-                // Datum omzetten naar dd/mm/jjjj
-                const dParts = e.date.split('-');
-                const formattedDate = `${dParts[2]}/${dParts[1]}/${dParts[0]}`;
+                const d = e.date.split('-');
+                const fullDate = `${d[2]}/${d[1]}/${d[0]}`;
 
                 list.innerHTML += `<tr>
                     <td><strong>${e.cat}</strong><br><small>${e.desc}</small></td>
-                    <td class="${e.type === 'op' ? 'green' : 'red'}" style="white-space:nowrap;">${val.toFixed(2)}€</td>
-                    <td style="white-space:nowrap;">${formattedDate}</td>
+                    <td class="${e.type === 'op' ? 'green' : 'red'}">${val.toFixed(2)}€</td>
+                    <td style="font-size:11px;">${fullDate}</td>
                     <td><button class="del-btn" onclick="del(${e.id})">X</button></td>
                 </tr>`;
             });
