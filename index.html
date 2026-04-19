@@ -13,12 +13,20 @@
         button { background: #007aff; color: white; border: none; font-weight: 600; }
         .red { color: #ff3b30; } .green { color: #34c759; }
         .hidden { display: none; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; table-layout: fixed; }
-        th { text-align: left; padding: 8px 5px; border-bottom: 2px solid #eee; }
+        th { text-align: left; padding: 8px 5px; border-bottom: 2px solid #eee; color: #007aff; text-decoration: underline; cursor: pointer; }
         td { padding: 12px 2px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; overflow: hidden; }
+        
         .cat-sum-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px dashed #eee; }
+        
+        /* Klikbare labels voor totalen */
+        .total-labels { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; text-transform: uppercase; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px; }
+        .total-labels span { color: #007aff; text-decoration: underline; cursor: pointer; font-weight: bold; }
+        
         .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
         .total-row span:last-child { font-weight: bold; text-align: right; }
+        
         .del-btn { background: #ff3b30; color: white; padding: 6px 8px; border-radius: 6px; width: auto; font-size: 12px !important; display: inline-block; margin: 0; }
         .btn-secondary { background: #e5e5ea; color: #333; margin-top: 8px; font-size: 12px !important; padding: 8px; }
     </style>
@@ -51,15 +59,19 @@
                 <h3 style="margin:0;">Maandbalans:</h3>
                 <h3 id="monthTotal" style="margin:0;">€0.00</h3>
             </div>
+            <div class="total-labels">
+                <span onclick="setSummarySort('cat')">Noemer</span>
+                <span onclick="setSummarySort('val')">Totaal (€)</span>
+            </div>
             <div id="catTotals"></div>
         </div>
         <div id="monthResult">
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 40%;">Wat</th>
-                        <th style="width: 25%;">€</th>
-                        <th style="width: 35%;">Datum</th>
+                        <th style="width: 40%;" onclick="setSort('cat')">Wat</th>
+                        <th style="width: 25%;" onclick="setSort('amt')">€</th>
+                        <th style="width: 35%;" onclick="setSort('date')">Datum</th>
                         <th style="width: 10%;"></th>
                     </tr>
                 </thead>
@@ -77,6 +89,9 @@
         const monthSelect = document.getElementById('filterMonth');
         const monthNames = ["Januari", "Februari", "Maart", "April", "Mei", "Juni", "Juli", "Augustus", "September", "Oktober", "November", "December"];
         
+        let currentSort = { field: 'date', direction: 'desc' };
+        let currentSummarySort = { field: 'cat', direction: 'asc' };
+
         function fillMonths() {
             const startYear = 2026;
             const now = new Date();
@@ -98,6 +113,26 @@
 
         document.getElementById('date').valueAsDate = new Date();
         let entries = JSON.parse(localStorage.getItem('budget')) || [];
+
+        function setSort(field) {
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.direction = 'asc';
+            }
+            render();
+        }
+
+        function setSummarySort(field) {
+            if (currentSummarySort.field === field) {
+                currentSummarySort.direction = currentSummarySort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSummarySort.field = field;
+                currentSummarySort.direction = field === 'val' ? 'desc' : 'asc';
+            }
+            render();
+        }
 
         function toggleSavings() {
             document.getElementById('saveUserDiv').classList.toggle('hidden', document.getElementById('cat').value !== 'Spaargeld');
@@ -130,11 +165,11 @@
 
         function exportData() {
             const dataStr = JSON.stringify(entries);
-            prompt("Back-up code (Kopiëren):", dataStr);
+            prompt("Back-up code:", dataStr);
         }
 
         function importData() {
-            const dataStr = prompt("Plak back-up code:");
+            const dataStr = prompt("Plak code:");
             if (dataStr) {
                 try {
                     entries = JSON.parse(dataStr);
@@ -155,17 +190,28 @@
             list.innerHTML = catDiv.innerHTML = "";
             let mTotal = 0, totals = {}, counts = {}, sS = 0, sL = 0;
 
-            // BEREKENING SPAARGELD (Global)
+            // Global savings calculation
             entries.forEach(e => {
                 if (e.cat === 'Spaargeld') {
-                    // Bij spaargeld is een "Kost" (geld naar spaarrek) een PLUS voor het saldo
                     let val = e.type === 'ko' ? e.amt : -e.amt;
                     if (e.user === 'Sander') sS += val; else sL += val;
                 }
             });
 
             const filtered = entries.filter(e => e.date.startsWith(filter));
-            filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
+            
+            // Sorteren van hoofdtabel
+            filtered.sort((a, b) => {
+                let valA = a[currentSort.field];
+                let valB = b[currentSort.field];
+                if (currentSort.field === 'amt') {
+                    valA = a.type === 'op' ? a.amt : -a.amt;
+                    valB = b.type === 'op' ? b.amt : -b.amt;
+                }
+                if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
 
             filtered.forEach(e => {
                 let val = e.type === 'op' ? e.amt : -e.amt;
@@ -189,10 +235,31 @@
             document.getElementById('monthTotal').innerText = "€" + mTotal.toFixed(2);
             document.getElementById('monthTotal').className = mTotal >= 0 ? 'green' : 'red';
 
-            const sortedCats = Object.keys(totals).sort();
-            for (let c of sortedCats) {
-                catDiv.innerHTML += `<div class="total-row"><span>${c} (${counts[c]}x)</span><span class="${totals[c] >= 0 ? 'green' : 'red'}">€${totals[c].toFixed(2)}</span></div>`;
-            }
+            // Sorteren van de totalen sectie
+            let summaryArray = Object.keys(totals).map(cat => ({
+                cat: cat,
+                val: totals[cat],
+                count: counts[cat]
+            }));
+
+            summaryArray.sort((a, b) => {
+                let valA = a[currentSummarySort.field];
+                let valB = b[currentSummarySort.field];
+                if (typeof valA === 'string') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                }
+                if (valA < valB) return currentSummarySort.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return currentSummarySort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            summaryArray.forEach(item => {
+                catDiv.innerHTML += `<div class="total-row">
+                    <span>${item.cat} (${item.count}x)</span>
+                    <span class="${item.val >= 0 ? 'green' : 'red'}">€${item.val.toFixed(2)}</span>
+                </div>`;
+            });
         }
         fillMonths();
         render();
