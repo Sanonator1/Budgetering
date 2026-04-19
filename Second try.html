@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Budget Pro</title>
+    <style>
+        /* Voorkom inzoomen op iPhone door font-size 16px */
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; padding: 15px; margin: 0; font-size: 16px; }
+        input, select, button { font-size: 16px !important; width: 100%; padding: 12px; margin: 6px 0; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; }
+        
+        /* Layout voor iPhone 16 */
+        .stats { display: flex; justify-content: space-between; font-weight: bold; position: sticky; top: 0; background: #f0f2f5; padding: 10px 0; z-index: 100; border-bottom: 1px solid #ddd; }
+        .card { background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        
+        button { background: #007aff; color: white; border: none; font-weight: 600; active { opacity: 0.7; } }
+        .red { color: #ff3b30; } .green { color: #34c759; }
+        .hidden { display: none; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        th { border-bottom: 2px solid #eee; padding: 10px 5px; text-align: left; }
+        td { padding: 12px 5px; border-bottom: 1px solid #f0f0f0; }
+        .del-btn { background: #ff3b30; color: white; padding: 5px 10px; border-radius: 6px; width: auto; font-size: 12px !important; }
+        
+        .cat-sum { margin-top: 15px; padding-top: 10px; border-top: 2px dashed #eee; font-size: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="stats">
+        <div class="green">Sander: €<span id="saveS">0</span></div>
+        <div class="green">Lien: €<span id="saveL">0</span></div>
+    </div>
+
+    <div class="card">
+        <input type="number" id="amt" placeholder="Bedrag (€)" inputmode="decimal">
+        <select id="type"><option value="ko">Kost (-)</option><option value="op">Opbrengst (+)</option></select>
+        <select id="cat" onchange="toggleSavings()">
+            <option>Loon</option><option>Naft</option><option>Vaste kosten</option>
+            <option>Boodschappen</option><option>Uitgaan</option><option>Spullen</option>
+            <option>Splitwise</option><option>Onvoorzien</option><option>Lien</option><option>Spaargeld</option>
+        </select>
+        <div id="saveUserDiv" class="hidden"><select id="saveUser"><option>Sander</option><option>Lien</option></select></div>
+        <input type="text" id="desc" placeholder="Uitleg">
+        <input type="date" id="date">
+        <button onclick="addEntry()">Toevoegen</button>
+    </div>
+
+    <div class="card">
+        <select id="filterMonth" onchange="render()"></select>
+        <div id="monthResult">
+            <table>
+                <thead><tr><th>Wat</th><th>€</th><th>#</th><th>Datum</th><th></th></tr></thead>
+                <tbody id="list"></tbody>
+            </table>
+            <h3 class="cat-sum">Maandbalans: <span id="monthTotal">0</span></h3>
+            <div id="catTotals" class="cat-sum"></div>
+        </div>
+    </div>
+
+    <script>
+        // Maanden genereren voor dropdown
+        const monthSelect = document.getElementById('filterMonth');
+        const monthNames = ["Januari", "Februari", "Maart", "April", "Mei", "Juni", "Juli", "Augustus", "September", "Oktober", "November", "December"];
+        
+        function fillMonths() {
+            const now = new Date();
+            for (let i = 0; i < 24; i++) {
+                let d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                let opt = document.createElement('option');
+                opt.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                opt.innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+                monthSelect.appendChild(opt);
+            }
+        }
+
+        document.getElementById('date').valueAsDate = new Date();
+        let entries = JSON.parse(localStorage.getItem('budget')) || [];
+
+        function toggleSavings() {
+            document.getElementById('saveUserDiv').classList.toggle('hidden', document.getElementById('cat').value !== 'Spaargeld');
+        }
+
+        function addEntry() {
+            const amt = document.getElementById('amt').value;
+            if (!amt) return;
+            const e = {
+                id: Date.now(),
+                amt: parseFloat(amt),
+                type: document.getElementById('type').value,
+                cat: document.getElementById('cat').value,
+                user: document.getElementById('cat').value === 'Spaargeld' ? document.getElementById('saveUser').value : null,
+                desc: document.getElementById('desc').value || '-',
+                date: document.getElementById('date').value
+            };
+            entries.push(e);
+            save();
+            document.getElementById('amt').value = '';
+            document.getElementById('desc').value = '';
+        }
+
+        function del(id) {
+            if(confirm("Verwijderen?")) {
+                entries = entries.filter(e => e.id !== id);
+                save();
+            }
+        }
+
+        function save() {
+            localStorage.setItem('budget', JSON.stringify(entries));
+            render();
+        }
+
+        function render() {
+            const list = document.getElementById('list');
+            const catDiv = document.getElementById('catTotals');
+            const filter = monthSelect.value;
+            list.innerHTML = catDiv.innerHTML = "";
+            
+            let mTotal = 0, totals = {}, counts = {}, sS = 0, sL = 0;
+
+            // Spaargeld altijd globaal berekenen
+            entries.forEach(e => {
+                if (e.cat === 'Spaargeld') {
+                    let val = e.type === 'op' ? e.amt : -e.amt;
+                    if (e.user === 'Sander') sS += val; else sL += val;
+                }
+            });
+
+            // Filteren op gekozen maand
+            const filtered = entries.filter(e => e.date.startsWith(filter));
+            
+            filtered.forEach(e => {
+                let val = e.type === 'op' ? e.amt : -e.amt;
+                mTotal += val;
+                totals[e.cat] = (totals[e.cat] || 0) + val;
+                counts[e.cat] = (counts[e.cat] || 0) + 1;
+
+                list.innerHTML += `<tr>
+                    <td><strong>${e.cat}</strong><br><small>${e.desc}</small></td>
+                    <td class="${e.type === 'op' ? 'green' : 'red'}">${val}€</td>
+                    <td>${counts[e.cat]}x</td>
+                    <td>${e.date.split('-')[2]}</td>
+                    <td><button class="del-btn" onclick="del(${e.id})">X</button></td>
+                </tr>`;
+            });
+
+            document.getElementById('saveS').innerText = sS.toFixed(2);
+            document.getElementById('saveL').innerText = sL.toFixed(2);
+            document.getElementById('monthTotal').innerText = "€" + mTotal.toFixed(2);
+            document.getElementById('monthTotal').className = mTotal >= 0 ? 'green' : 'red';
+
+            for (let c in totals) {
+                catDiv.innerHTML += `<div>${c}: <strong class="${totals[c] >= 0 ? 'green' : 'red'}">€${totals[c].toFixed(2)}</strong></div>`;
+            }
+        }
+
+        fillMonths();
+        render();
+    </script>
+</body>
+</html>
